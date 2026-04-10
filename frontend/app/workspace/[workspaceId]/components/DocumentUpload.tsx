@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { uploadDocument } from '@/lib/api'
+import { uploadDocument, getDocumentStatus } from '@/lib/api'
 
 interface DocumentUploadProps {
   workspaceId: string
@@ -16,6 +16,8 @@ export default function DocumentUpload({
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
+  const [processingDocId, setProcessingDocId] = useState<string | null>(null)
+  const [processingStatus, setProcessingStatus] = useState<'processing' | 'complete' | 'error' | null>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
@@ -61,16 +63,63 @@ export default function DocumentUpload({
     }
   }, [])
 
+  const pollProcessingStatus = async (documentId: string) => {
+    const maxAttempts = 60 // 2 minutes max (2 second intervals)
+    let attempts = 0
+    
+    const poll = async () => {
+      try {
+        const status = await getDocumentStatus(workspaceId, documentId)
+        
+        if (status.status === 'complete') {
+          setProcessingStatus('complete')
+          setProcessingDocId(null)
+          onUploadComplete()
+          return
+        }
+        
+        if (status.status === 'error' || status.error_message) {
+          setProcessingStatus('error')
+          setError(status.error_message || 'Processing failed')
+          setProcessingDocId(null)
+          return
+        }
+        
+        // Still processing
+        attempts++
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 2000) // Poll every 2 seconds
+        } else {
+          // Timeout
+          setProcessingStatus('error')
+          setError('Processing timed out')
+          setProcessingDocId(null)
+        }
+      } catch (err) {
+        setProcessingStatus('error')
+        setError('Failed to check processing status')
+        setProcessingDocId(null)
+      }
+    }
+    
+    poll()
+  }
+
   const handleUpload = async () => {
     if (!file) return
 
     setUploading(true)
     setError(null)
+    setProcessingStatus(null)
 
     try {
-      await uploadDocument(workspaceId, file)
+      const document = await uploadDocument(workspaceId, file)
       setFile(null)
-      onUploadComplete()
+      
+      // Start polling for processing status
+      setProcessingDocId(document.id)
+      setProcessingStatus('processing')
+      pollProcessingStatus(document.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to upload document')
     } finally {
@@ -138,6 +187,24 @@ export default function DocumentUpload({
       {error && (
         <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+
+      {processingStatus === 'processing' && (
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-600 flex items-center">
+            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Processing document...
+          </p>
+        </div>
+      )}
+
+      {processingStatus === 'complete' && (
+        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-sm text-green-600">✓ Document processed successfully</p>
         </div>
       )}
 
