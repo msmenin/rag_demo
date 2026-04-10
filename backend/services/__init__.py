@@ -7,6 +7,7 @@ from backend.services.pdf_processor import (
     PDFExtractionError,
 )
 from backend.services.chunker import chunk_text, ChunkMetadata
+from backend.services.vector_store import VectorStoreService, get_vector_store_service
 
 __all__ = [
     "create_llm",
@@ -17,4 +18,6 @@ __all__ = [
     "PDFExtractionError",
     "chunk_text",
     "ChunkMetadata",
+    "VectorStoreService",
+    "get_vector_store_service",
 ]

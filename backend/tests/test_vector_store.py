@@ -7,7 +7,7 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 
 # We need to test the vector store service without needing real embeddings
-# Mock the embedding model for faster tests
+# Use LlamaIndex's built-in MockEmbedding for faster tests
 
 
 class TestVectorStoreService:
@@ -22,13 +22,8 @@ class TestVectorStoreService:
     @pytest.fixture
     def mock_embedding_model(self):
         """Mock the embedding factory to avoid real API calls."""
-        from llama_index.core.embeddings import BaseEmbedding
-        
-        mock = MagicMock(spec=BaseEmbedding)
-        # Mock the embedding method
-        mock._get_text_embedding = MagicMock(return_value=[0.1] * 1536)
-        mock._get_query_embedding = MagicMock(return_value=[0.1] * 1536)
-        return mock
+        from llama_index.core.embeddings import MockEmbedding
+        return MockEmbedding(embed_dim=8)
 
     def test_get_workspace_collection_creates_collection_with_correct_name(self, temp_chroma_dir, mock_embedding_model):
         """Test that get_workspace_collection() creates collection with name 'workspace_{uuid}'."""
