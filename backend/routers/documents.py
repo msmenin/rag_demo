@@ -1,5 +1,5 @@
 """Document API endpoints."""
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, BackgroundTasks
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from pathlib import Path
@@ -9,6 +9,8 @@ from backend.database import get_db
 from backend.models import Workspace, Document
 from backend.schemas import DocumentResponse
 from backend.config import settings
+from backend.services.document_processor import process_document
+from backend.services.vector_store import get_vector_store_service
 
 
 router = APIRouter(prefix="/workspace/{workspace_id}/documents", tags=["documents"])
@@ -21,10 +23,11 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 @router.post("/", response_model=DocumentResponse)
 async def upload_document(
     workspace_id: str,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db)
 ):
-    """Upload a PDF document to a workspace."""
+    """Upload a PDF document to a workspace with background processing."""
     # Validate workspace ID format
     try:
         workspace_uuid = UUID(workspace_id)
@@ -93,6 +96,24 @@ async def upload_document(
     await db.commit()
     await db.refresh(document)
     
+    # Queue background processing
+    # Note: We create a new async session for the background task
+    # because the current session will be closed after the request
+    from backend.database import async_session
+    
+    async def process_with_new_session():
+        async with async_session() as bg_db:
+            vector_store = get_vector_store_service()
+            await process_document(
+                document_id=str(document.id),
+                workspace_id=str(workspace.id),
+                file_path=str(file_path),
+                db=bg_db,
+                vector_store=vector_store
+            )
+    
+    background_tasks.add_task(process_with_new_session)
+    
     return document
 
 
@@ -127,6 +148,47 @@ async def list_documents(
     return documents
 
 
+@router.get("/{document_id}/status")
+async def get_document_status(
+    workspace_id: str,
+    document_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get document processing status."""
+    # Validate IDs format
+    try:
+        doc_uuid = UUID(document_id)
+        workspace_uuid = UUID(workspace_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid ID format")
+    
+    # Query for document with BOTH workspace_id and document_id (isolation guarantee)
+    result = await db.execute(
+        select(Document)
+        .where(Document.id == doc_uuid)
+        .where(Document.workspace_id == workspace_uuid)
+    )
+    document = result.scalar_one_or_none()
+    
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Determine status
+    if document.error_message:
+        status = "error"
+    elif document.indexed_at:
+        status = "complete"
+    else:
+        status = "processing"
+    
+    return {
+        "id": str(document.id),
+        "status": status,
+        "page_count": document.page_count,
+        "error_message": document.error_message
+    }
+
+
 @router.delete("/{document_id}", status_code=204)
 async def delete_document(
     workspace_id: str,
@@ -145,12 +207,16 @@ async def delete_document(
     result = await db.execute(
         select(Document)
         .where(Document.id == document_uuid)
-        .where(Document.workspace_id == workspace_uuid)  # CRITICAL: isolation
+        .where(Document.workspace_id == workspace_uuid)
     )
     document = result.scalar_one_or_none()
     
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Delete vectors from ChromaDB
+    vector_store = get_vector_store_service()
+    await vector_store.delete_document_vectors(str(document.id), str(workspace_uuid))
     
     # Delete file from disk
     file_path = Path(document.file_path)
