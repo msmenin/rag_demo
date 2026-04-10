@@ -1,6 +1,6 @@
 """Document API endpoints."""
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from pathlib import Path
 from uuid import UUID
@@ -8,6 +8,7 @@ import aiofiles
 from backend.database import get_db
 from backend.models import Workspace, Document
 from backend.schemas import DocumentResponse
+from backend.config import settings
 
 
 router = APIRouter(prefix="/workspace/{workspace_id}/documents", tags=["documents"])
@@ -37,6 +38,19 @@ async def upload_document(
     workspace = result.scalar_one_or_none()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
+    
+    # Check document count capacity
+    count_result = await db.execute(
+        select(func.count(Document.id)).where(Document.workspace_id == workspace_uuid)
+    )
+    current_count = count_result.scalar() or 0
+    
+    if current_count >= settings.MAX_DOCUMENTS_PER_WORKSPACE:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Workspace has reached maximum document capacity ({settings.MAX_DOCUMENTS_PER_WORKSPACE}). "
+                   f"Delete documents to upload more."
+        )
     
     # Validate file extension
     if not file.filename:
