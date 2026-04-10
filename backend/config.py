@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     
     DATABASE_URL: str = "sqlite+aiosqlite:///./rag_app.db"
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    PROVIDER_CONFIG_PATH: str = "backend/config/providers.yaml"
     
     model_config = SettingsConfigDict(
         env_file=".env",
