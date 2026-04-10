@@ -12,5 +12,13 @@ export interface Document {
   page_count?: number
   file_size?: number
   indexed_at?: string
+  error_message?: string
   created_at: string
+}
+
+export interface DocumentStatus {
+  id: string
+  status: 'processing' | 'complete' | 'error'
+  page_count?: number
+  error_message?: string
 }

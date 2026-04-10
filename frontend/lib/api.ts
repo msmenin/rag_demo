@@ -1,4 +1,4 @@
-import { Workspace, Document } from './types'
+import { Workspace, Document, DocumentStatus } from './types'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -66,4 +66,20 @@ export async function deleteDocument(workspaceId: string, documentId: string): P
   if (!res.ok) {
     throw new Error(`Failed to delete document: ${res.status} ${res.statusText}`)
   }
+}
+
+export async function getDocumentStatus(
+  workspaceId: string,
+  documentId: string
+): Promise<DocumentStatus> {
+  const res = await fetch(`${API_BASE}/workspace/${workspaceId}/documents/${documentId}/status`)
+
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error('Document not found')
+    }
+    throw new Error('Failed to get document status')
+  }
+
+  return res.json()
 }
