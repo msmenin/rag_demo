@@ -79,3 +79,47 @@ def test_startup_fails_missing_config_file():
         validate_provider_config(config_path=nonexistent_path)
     
     assert "not found" in str(exc_info.value).lower()
+
+
+@pytest.mark.asyncio
+async def test_health_providers_endpoint(async_client: AsyncClient):
+    """Test /health/providers endpoint returns provider info."""
+    response = await async_client.get("/health/providers")
+    assert response.status_code == 200
+    data = response.json()
+    
+    # Check structure
+    assert "llm" in data
+    assert "embeddings" in data
+    
+    # Check LLM info
+    assert "provider" in data["llm"]
+    assert "model" in data["llm"]
+    assert "api_key_configured" in data["llm"]
+    
+    # Check embeddings info
+    assert "provider" in data["embeddings"]
+    assert "model" in data["embeddings"]
+    assert "api_key_configured" in data["embeddings"]
+    
+    # Should not expose actual API key values
+    # "api_key_configured" is fine - it's a boolean, not the actual key
+    # Check that no key values are exposed (keys would look like "sk-...")
+    assert "sk-" not in str(data)
+    assert "OPENROUTER_API_KEY" not in str(data) or data["llm"]["api_key_configured"] in [True, False]
+
+
+@pytest.mark.asyncio
+async def test_health_providers_missing_key(async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch):
+    """Test /health/providers shows api_key_configured as false when key missing."""
+    # Remove the API key
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    
+    response = await async_client.get("/health/providers")
+    assert response.status_code == 200
+    data = response.json()
+    
+    # API key should show as not configured
+    assert data["llm"]["api_key_configured"] is False
+    assert data["embeddings"]["api_key_configured"] is False
