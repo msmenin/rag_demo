@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from backend.config import settings
 from backend.database import init_db
-from backend.routers import workspace_router
+from backend.routers import workspace_router, documents_router
 
 
 @asynccontextmanager
@@ -39,5 +39,6 @@ async def health_check():
     return {"status": "ok"}
 
 
-# Include workspace router
+# Include routers
 app.include_router(workspace_router)
+app.include_router(documents_router)

@@ -18,7 +18,7 @@ async def test_upload_document_success(async_client: AsyncClient, db_session):
     pdf_content = b"%PDF-1.4 fake pdf content"
     files = {"file": ("test.pdf", io.BytesIO(pdf_content), "application/pdf")}
     response = await async_client.post(
-        f"/workspace/{workspace_id}/documents",
+        f"/workspace/{workspace_id}/documents/",
         files=files
     )
     
@@ -51,7 +51,7 @@ async def test_upload_non_pdf(async_client: AsyncClient, db_session):
     # Try to upload text file
     files = {"file": ("test.txt", io.BytesIO(b"text content"), "text/plain")}
     response = await async_client.post(
-        f"/workspace/{workspace_id}/documents",
+        f"/workspace/{workspace_id}/documents/",
         files=files
     )
     
@@ -72,7 +72,7 @@ async def test_upload_path_traversal(async_client: AsyncClient, db_session):
     pdf_content = b"%PDF-1.4 fake pdf content"
     files = {"file": ("../../../etc/passwd.pdf", io.BytesIO(pdf_content), "application/pdf")}
     response = await async_client.post(
-        f"/workspace/{workspace_id}/documents",
+        f"/workspace/{workspace_id}/documents/",
         files=files
     )
     
@@ -100,7 +100,7 @@ async def test_upload_to_nonexistent_workspace(async_client: AsyncClient, db_ses
     pdf_content = b"%PDF-1.4 fake pdf content"
     files = {"file": ("test.pdf", io.BytesIO(pdf_content), "application/pdf")}
     response = await async_client.post(
-        f"/workspace/{fake_id}/documents",
+        f"/workspace/{fake_id}/documents/",
         files=files
     )
     
@@ -121,7 +121,7 @@ async def test_upload_file_size_and_filename_stored(async_client: AsyncClient, d
     pdf_content = b"%PDF-1.4 " + b"x" * 1000  # Create larger content
     files = {"file": ("report.pdf", io.BytesIO(pdf_content), "application/pdf")}
     response = await async_client.post(
-        f"/workspace/{workspace_id}/documents",
+        f"/workspace/{workspace_id}/documents/",
         files=files
     )
     
