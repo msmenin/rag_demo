@@ -6,6 +6,7 @@ from backend.services.pdf_processor import (
     get_page_count,
     PDFExtractionError,
 )
+from backend.services.chunker import chunk_text, ChunkMetadata
 
 __all__ = [
     "create_llm",
@@ -14,4 +15,6 @@ __all__ = [
     "extract_pdf_text",
     "get_page_count",
     "PDFExtractionError",
+    "chunk_text",
+    "ChunkMetadata",
 ]
