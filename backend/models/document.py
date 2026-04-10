@@ -33,6 +33,7 @@ class Document(Base):
     page_count = Column(Integer, nullable=True)
     file_size = Column(Integer, nullable=True)  # Bytes
     indexed_at = Column(DateTime, nullable=True)  # For future RAG indexing
+    error_message = Column(String, nullable=True)  # Processing errors
     created_at = Column(DateTime, default=generate_timestamp)
     
     # Relationship to workspace
