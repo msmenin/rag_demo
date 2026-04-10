@@ -12,4 +12,7 @@ class DocumentResponse(BaseModel):
     workspace_id: UUID4
     filename: str
     file_size: Optional[int] = None
+    page_count: Optional[int] = None
+    indexed_at: Optional[datetime] = None
+    error_message: Optional[str] = None
     created_at: datetime
