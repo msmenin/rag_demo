@@ -7,6 +7,7 @@ import yaml
 from backend.config import settings
 from backend.database import init_db
 from backend.routers import workspace_router, documents_router
+from backend.routers import query as query_router
 from backend.services.llm_factory import validate_provider_config
 
 
@@ -95,3 +96,4 @@ async def health_providers():
 # Include routers
 app.include_router(workspace_router)
 app.include_router(documents_router)
+app.include_router(query_router.router)
