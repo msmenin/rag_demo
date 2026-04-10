@@ -12,3 +12,4 @@ llama-index>=0.12.0
 llama-index-llms-openai>=0.3.0
 llama-index-embeddings-openai>=0.3.0
 pyyaml>=6.0
+pymupdf4llm>=0.0.17
