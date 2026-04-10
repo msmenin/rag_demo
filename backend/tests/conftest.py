@@ -49,13 +49,26 @@ async def db_session(db_engine):
 @pytest.fixture(scope="function")
 async def async_client(db_session):
     """Create an async test client."""
+    from backend.models import Workspace
+
     async def override_get_db():
         yield db_session
-    
+
     app.dependency_overrides[get_db] = override_get_db
-    
+
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        yield client
-    
+    async with AsyncClient(transport=transport, base_url="http://test") as test_client:
+        yield test_client
+
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
+async def workspace(async_client):
+    """Create a test workspace for upload tests."""
+    from backend.models import Workspace
+
+    response = await async_client.post("/workspace/")
+    assert response.status_code == 200
+
+    return Workspace(**response.json())
