@@ -4,6 +4,7 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import event
+from pathlib import Path
 from backend.main import app
 from backend.database import Base, get_db
 
@@ -72,3 +73,47 @@ async def workspace(async_client):
     assert response.status_code == 200
 
     return Workspace(**response.json())
+
+
+@pytest.fixture
+def test_pdf_small():
+    """Small PDF (1-2 pages) for quick tests."""
+    pdf_path = Path(__file__).parent / "fixtures" / "test_small.pdf"
+    if not pdf_path.exists():
+        # Create a simple PDF for testing
+        import fitz  # PyMuPDF
+
+        doc = fitz.open()
+        page = doc.new_page()
+        page.insert_text((100, 100), "Test document for RAG pipeline. " * 50)
+        page.insert_text((100, 200), "This is page 1 content for semantic chunking tests.")
+        doc.save(str(pdf_path))
+        doc.close()
+
+    with open(pdf_path, "rb") as f:
+        return f.read()
+
+
+@pytest.fixture
+def test_pdf_medium():
+    """Medium PDF (~10 pages) for performance tests."""
+    pdf_path = Path(__file__).parent / "fixtures" / "test_medium.pdf"
+    if not pdf_path.exists():
+        import fitz
+
+        doc = fitz.open()
+        for i in range(10):
+            page = doc.new_page()
+            page.insert_text((100, 100), f"Page {i+1} of test document. " * 100)
+            page.insert_text((100, 200), f"This is content for page {i+1} with more text for chunking.")
+        doc.save(str(pdf_path))
+        doc.close()
+
+    with open(pdf_path, "rb") as f:
+        return f.read()
+
+
+@pytest.fixture
+def test_pdf_invalid():
+    """Invalid PDF for error handling tests."""
+    return b"This is not a valid PDF file content"
