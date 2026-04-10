@@ -1,0 +1,20 @@
+# Test provider configuration
+llm:
+  default: openrouter
+  providers:
+    openrouter:
+      type: openai_compatible
+      model: anthropic/claude-3.5-sonnet
+      api_key_env: OPENROUTER_API_KEY
+      base_url: https://openrouter.ai/api/v1
+      extra_headers:
+        HTTP-Referer: http://localhost:3000
+        X-Title: RAG Document Assistant
+
+embeddings:
+  default: openai
+  providers:
+    openai:
+      type: openai
+      model: text-embedding-3-small
+      api_key_env: OPENAI_API_KEY
