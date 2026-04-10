@@ -17,6 +17,14 @@ class TestCreateEmbeddingFromConfig:
         """Factory creates OpenAIEmbedding instance from config."""
         # Arrange
         config_content = """
+llm:
+  default: openai
+  providers:
+    openai:
+      type: openai
+      model: gpt-4o-mini
+      api_key_env: OPENAI_API_KEY
+
 embeddings:
   default: openai
   providers:
@@ -40,6 +48,14 @@ embeddings:
         """Verify model name and api_key are set correctly."""
         # Arrange
         config_content = """
+llm:
+  default: openai
+  providers:
+    openai:
+      type: openai
+      model: gpt-4o-mini
+      api_key_env: OPENAI_API_KEY
+
 embeddings:
   default: openai
   providers:
@@ -64,6 +80,14 @@ embeddings:
         """Missing API key raises clear error."""
         # Arrange
         config_content = """
+llm:
+  default: openai
+  providers:
+    openai:
+      type: openai
+      model: gpt-4o-mini
+      api_key_env: OPENAI_API_KEY
+
 embeddings:
   default: openai
   providers:
@@ -74,6 +98,7 @@ embeddings:
 """
         config_path = tmp_path / "providers.yaml"
         config_path.write_text(config_content)
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key")
         # Ensure the env var is not set
         monkeypatch.delenv("MISSING_API_KEY", raising=False)
         
@@ -88,6 +113,14 @@ embeddings:
         """Factory loads from custom config path."""
         # Arrange
         config_content = """
+llm:
+  default: openai
+  providers:
+    openai:
+      type: openai
+      model: gpt-4o-mini
+      api_key_env: CUSTOM_KEY
+
 embeddings:
   default: custom_provider
   providers:
@@ -123,6 +156,14 @@ embeddings:
         # Arrange - this test will be implemented when we add HuggingFace support
         # For now, we test that api_key_env is optional in the schema
         config_content = """
+llm:
+  default: openai
+  providers:
+    openai:
+      type: openai
+      model: gpt-4o-mini
+      api_key_env: OPENAI_API_KEY
+
 embeddings:
   default: huggingface
   providers:
@@ -132,6 +173,7 @@ embeddings:
 """
         config_path = tmp_path / "providers.yaml"
         config_path.write_text(config_content)
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key")
         
         # This will fail until we implement HuggingFace support in the registry
         # For now, we expect a ValueError about unknown provider type
