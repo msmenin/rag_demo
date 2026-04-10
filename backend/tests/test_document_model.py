@@ -5,6 +5,7 @@ from uuid import uuid4
 from sqlalchemy import select
 from backend.models.document import Document
 from backend.models.workspace import Workspace
+from backend.schemas.document import DocumentResponse
 
 
 @pytest.mark.asyncio
@@ -121,3 +122,97 @@ async def test_document_creation_with_valid_workspace(db_session):
     assert isinstance(document.id, type(workspace.id))  # Both UUIDs
     assert document.workspace_id == workspace.id
     assert document.filename == "sample.pdf"
+
+
+@pytest.mark.asyncio
+async def test_document_error_message_field(db_session):
+    """Test that Document model has error_message field (String, nullable)."""
+    # Create workspace
+    workspace = Workspace()
+    db_session.add(workspace)
+    await db_session.commit()
+    await db_session.refresh(workspace)
+    
+    # Create document with error_message
+    document = Document(
+        workspace_id=workspace.id,
+        filename="test.pdf",
+        file_path="uploads/test/test.pdf",
+        error_message="Failed to extract text from PDF"
+    )
+    db_session.add(document)
+    await db_session.commit()
+    await db_session.refresh(document)
+    
+    # Verify error_message field exists and can be set
+    assert document.error_message == "Failed to extract text from PDF"
+    
+    # Verify error_message is nullable
+    doc2 = Document(
+        workspace_id=workspace.id,
+        filename="test2.pdf",
+        file_path="uploads/test/test2.pdf",
+        error_message=None
+    )
+    db_session.add(doc2)
+    await db_session.commit()
+    await db_session.refresh(doc2)
+    assert doc2.error_message is None
+
+
+@pytest.mark.asyncio
+async def test_document_response_schema_includes_error_message(db_session):
+    """Test that DocumentResponse schema includes error_message field."""
+    # Create workspace
+    workspace = Workspace()
+    db_session.add(workspace)
+    await db_session.commit()
+    await db_session.refresh(workspace)
+    
+    # Create document
+    document = Document(
+        workspace_id=workspace.id,
+        filename="test.pdf",
+        file_path="uploads/test/test.pdf",
+        file_size=1024,
+        error_message="Processing failed"
+    )
+    db_session.add(document)
+    await db_session.commit()
+    await db_session.refresh(document)
+    
+    # Create DocumentResponse from model
+    response = DocumentResponse.model_validate(document)
+    
+    # Verify error_message is included in response
+    assert response.error_message == "Processing failed"
+    assert response.id == document.id
+    assert response.workspace_id == workspace.id
+    assert response.filename == "test.pdf"
+
+
+@pytest.mark.asyncio
+async def test_document_response_schema_handles_null_error_message(db_session):
+    """Test that DocumentResponse schema handles null error_message."""
+    # Create workspace
+    workspace = Workspace()
+    db_session.add(workspace)
+    await db_session.commit()
+    await db_session.refresh(workspace)
+    
+    # Create document without error_message
+    document = Document(
+        workspace_id=workspace.id,
+        filename="test.pdf",
+        file_path="uploads/test/test.pdf",
+        file_size=2048
+    )
+    db_session.add(document)
+    await db_session.commit()
+    await db_session.refresh(document)
+    
+    # Create DocumentResponse from model
+    response = DocumentResponse.model_validate(document)
+    
+    # Verify error_message is None
+    assert response.error_message is None
