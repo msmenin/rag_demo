@@ -1,0 +1,20 @@
+# Alternative test provider configuration
+# This config uses OpenAI directly instead of OpenRouter
+
+llm:
+  default: openai
+  
+  providers:
+    openai:
+      type: openai
+      model: gpt-4o-mini
+      api_key_env: OPENAI_API_KEY
+
+embeddings:
+  default: openai
+  
+  providers:
+    openai:
+      type: openai
+      model: text-embedding-3-large
+      api_key_env: OPENAI_API_KEY
