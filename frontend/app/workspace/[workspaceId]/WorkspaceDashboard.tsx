@@ -20,8 +20,7 @@ export default function WorkspaceDashboard({
   const [refreshKey, setRefreshKey] = useState(0)
 
   const handleUploadComplete = () => {
-    // Refresh documents list
-    setRefreshKey(prev => prev + 1)
+    refreshDocuments()
   }
 
   const handleDelete = (documentId: string) => {
