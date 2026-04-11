@@ -22,3 +22,16 @@ export interface DocumentStatus {
   page_count?: number
   error_message?: string
 }
+
+export interface Message {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface ChatState {
+  messages: Message[]
+  input: string
+  isLoading: boolean
+  error: Error | null
+}
