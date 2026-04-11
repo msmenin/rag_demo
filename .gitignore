@@ -24,7 +24,12 @@ wheels/
 venv/
 ENV/
 env/
-.venv
+.venv/
+
+# Node / Next.js
+node_modules/
+.next/
+frontend/.next/
 
 # IDE
 .vscode/
@@ -47,6 +52,9 @@ htmlcov/
 *.db
 *.sqlite
 *.sqlite3
+
+# User uploads (workspace documents)
+uploads/
 
 # OS
 .DS_Store
