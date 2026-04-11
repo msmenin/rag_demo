@@ -1,9 +1,19 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { useState } from 'react'
 import { Workspace, Document } from '@/lib/types'
 import DocumentList from './components/DocumentList'
 import DocumentUpload from './components/DocumentUpload'
+import ChatInterfaceLoadingShell from './components/ChatInterfaceLoadingShell'
+
+const ChatInterface = dynamic(
+  () => import('./components/ChatInterface'),
+  {
+    ssr: false,
+    loading: () => <ChatInterfaceLoadingShell />,
+  },
+)
 
 interface WorkspaceDashboardProps {
   workspace: Workspace
@@ -51,8 +61,13 @@ export default function WorkspaceDashboard({
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="space-y-8">
+            <DocumentUpload 
+              workspaceId={workspaceId}
+              onUploadComplete={handleUploadComplete}
+            />
+            
             <DocumentList 
               documents={documents}
               workspaceId={workspaceId}
@@ -62,11 +77,8 @@ export default function WorkspaceDashboard({
             />
           </div>
           
-          <div className="lg:col-span-1">
-            <DocumentUpload 
-              workspaceId={workspaceId}
-              onUploadComplete={handleUploadComplete}
-            />
+          <div>
+            <ChatInterface workspaceId={workspaceId} />
           </div>
         </div>
       </main>

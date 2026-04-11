@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from backend.models import Document
 from backend.services.pdf_processor import extract_pdf_text, get_page_count, PDFExtractionError
@@ -38,6 +39,9 @@ async def process_document(
     Raises:
         PDFExtractionError: If PDF extraction fails
     """
+    # Convert string IDs to UUID
+    doc_uuid = UUID(document_id)
+    
     try:
         # 1. Extract text with page numbers
         pages = extract_pdf_text(file_path)
@@ -55,7 +59,7 @@ async def process_document(
         # 5. Update document metadata
         await db.execute(
             update(Document)
-            .where(Document.id == document_id)
+            .where(Document.id == doc_uuid)
             .values(
                 page_count=page_count,
                 indexed_at=datetime.now(timezone.utc)
@@ -67,7 +71,7 @@ async def process_document(
         # Log error and update document
         await db.execute(
             update(Document)
-            .where(Document.id == document_id)
+            .where(Document.id == doc_uuid)
             .values(error_message=str(e))
         )
         await db.commit()
@@ -76,7 +80,7 @@ async def process_document(
         # Handle unexpected errors
         await db.execute(
             update(Document)
-            .where(Document.id == document_id)
+            .where(Document.id == doc_uuid)
             .values(error_message=f"Processing failed: {str(e)}")
         )
         await db.commit()

@@ -56,6 +56,9 @@ def create_llm(config_path: Path = Path("backend/config/providers.yaml")) -> LLM
     kwargs = {
         "model": provider_config["model"],
         "api_key": api_key,
+        "is_chat_model": True,  # Required for OpenRouter/custom models
+        "is_function_calling_model": False,  # Not all custom models support function calling
+        "context_window": 4096,  # Required for custom models to bypass validation
     }
     
     # Add optional base_url for OpenAI-compatible providers

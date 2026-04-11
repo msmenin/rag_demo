@@ -1,5 +1,6 @@
 """RAG engine for query processing with LlamaIndex integration."""
 import json
+import traceback
 from typing import AsyncGenerator, Optional, List
 from llama_index.core.llms import LLM
 
@@ -86,9 +87,9 @@ Answer:"""
 
             # Stream response from LLM
             try:
-                # Use synchronous stream for LlamaIndex LLM
-                response = self.llm.stream(prompt)
-                for token in response:
+                # Use async stream complete for string prompts
+                response = await self.llm.astream_complete(prompt)
+                async for token in response:
                     # Yield each token as SSE chunk
                     chunk_data = json.dumps({
                         "type": "chunk",
@@ -97,9 +98,12 @@ Answer:"""
                     yield f"data: {chunk_data}\n\n"
             except Exception as llm_error:
                 # Handle LLM streaming errors
+                error_msg = f"LLM error: {str(llm_error)}"
+                print(f"[RAG ERROR] {error_msg}")
+                print(f"[RAG ERROR] Traceback: {traceback.format_exc()}")
                 error_data = json.dumps({
                     "type": "error",
-                    "message": f"LLM error: {str(llm_error)}"
+                    "message": error_msg
                 })
                 yield f"data: {error_data}\n\n"
                 return
