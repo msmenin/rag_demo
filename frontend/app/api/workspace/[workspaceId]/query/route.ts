@@ -35,7 +35,7 @@ export async function POST(
     )
   }
 
-  // Transform SSE stream to AI SDK format
+  // Transform SSE stream to AI SDK Data Stream Protocol format
   const encoder = new TextEncoder()
   const reader = response.body?.getReader()
   
@@ -43,40 +43,76 @@ export async function POST(
     return new Response('No stream', { status: 500 })
   }
   
+  // Helper to enqueue SSE event with proper formatting
+  const sendEvent = (controller: WritableStreamDefaultController, event: object) => {
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
+  }
+  
   const stream = new ReadableStream({
     async start(controller) {
       const decoder = new TextDecoder()
       let buffer = ''
+      const messageId = crypto.randomUUID()
+      const textBlockId = crypto.randomUUID()
+      let messageStarted = false
+      let accumulatedContent = '' // Track cumulative content to calculate deltas
       
       try {
         while (true) {
           const { done, value } = await reader.read()
           
           if (done) {
+            // Send text-end if message was started
+            if (messageStarted) {
+              sendEvent(controller, { type: 'text-end', id: textBlockId })
+            }
+            // Send finish message and stream termination
+            sendEvent(controller, { type: 'finish' })
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
             controller.close()
             break
           }
           
           buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop() || ''
+          // Split on double newline to get complete events
+          const events = buffer.split('\n\n')
+          buffer = events.pop() || ''
           
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const jsonStr = line.slice(6)
-                const dataObj = JSON.parse(jsonStr)
-                
-                if (dataObj.type === 'chunk') {
-                  const text = dataObj.content || ''
-                  controller.enqueue(encoder.encode(`0:${JSON.stringify(text)}\n`))
-                } else if (dataObj.type === 'error') {
-                  controller.enqueue(encoder.encode(`3:${JSON.stringify({ error: dataObj.message })}\n`))
-                } else if (dataObj.type === 'done') {
-                  controller.enqueue(encoder.encode(`e:${JSON.stringify({ finishReason: 'stop' })}\n`))
+          for (const event of events) {
+            // Each event may have multiple data: lines
+            const lines = event.split('\n')
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const jsonStr = line.slice(6).trim()
+                  if (!jsonStr) continue
+                  
+                  const dataObj = JSON.parse(jsonStr)
+                  
+                  if (dataObj.type === 'chunk') {
+                    // LLM sends cumulative content, extract only the new portion
+                    const newContent = dataObj.content || ''
+                    const delta = newContent.slice(accumulatedContent.length)
+                    accumulatedContent = newContent
+                    
+                    // Send message start if not yet sent
+                    if (!messageStarted) {
+                      sendEvent(controller, { type: 'start', messageId })
+                      sendEvent(controller, { type: 'text-start', id: textBlockId })
+                      messageStarted = true
+                    }
+                    
+                    // Send only the incremental delta
+                    if (delta) {
+                      sendEvent(controller, { type: 'text-delta', id: textBlockId, delta })
+                    }
+                  } else if (dataObj.type === 'error') {
+                    sendEvent(controller, { type: 'error', errorText: dataObj.message || 'Unknown error' })
+                  }
+                  // 'done' type will be handled after the loop completes
+                } catch (e) {
+                  console.error('[Query API] Failed to parse SSE data:', e, 'Line:', line)
                 }
-              } catch (e) {
-                console.error('[Query API] Failed to parse SSE data:', e)
               }
             }
           }
@@ -90,9 +126,10 @@ export async function POST(
   
   return new Response(stream, {
     headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
+      'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
+      'x-vercel-ai-ui-message-stream': 'v1',
     },
   })
 }

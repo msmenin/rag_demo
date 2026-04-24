@@ -20,6 +20,12 @@ export default function ChatInterface({ workspaceId }: ChatInterfaceProps) {
   
   const isLoading = status === 'streaming' || status === 'submitted'
 
+  const getMessageContent = (message: typeof messages[0]) => {
+    if (typeof message.content === 'string') return message.content
+    if (message.parts) return message.parts.map(p => p.text || '').join('')
+    return ''
+  }
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isLoading) return
@@ -55,7 +61,7 @@ export default function ChatInterface({ workspaceId }: ChatInterfaceProps) {
                   : 'bg-gray-100 text-gray-900'
               }`}
             >
-              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+              <p className="text-sm whitespace-pre-wrap">{getMessageContent(message)}</p>
             </div>
           </div>
         ))}

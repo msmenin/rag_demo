@@ -31,6 +31,9 @@ node_modules/
 .next/
 frontend/.next/
 
+# Local planning / agent state (GSD, etc.)
+.planning/
+
 # IDE
 .vscode/
 .idea/
