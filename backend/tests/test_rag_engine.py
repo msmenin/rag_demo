@@ -29,13 +29,17 @@ class TestRAGEngine:
     def mock_llm(self):
         """Create mock LLM instance."""
         mock = MagicMock()
-        # Mock streaming response - stream() returns an iterable
-        def mock_stream(*args, **kwargs):
-            """Mock stream method that yields tokens."""
+        # Mock streaming response - astream_complete() returns an async iterable when awaited
+        async def mock_astream(*args, **kwargs):
+            """Mock astream_complete method that yields tokens."""
             for token in ["Machine ", "learning ", "is ", "a ", "subset ", "of ", "AI."]:
                 yield token
         
-        mock.stream = mock_stream
+        # Create a coroutine that returns the async generator
+        async def mock_astream_complete(*args, **kwargs):
+            return mock_astream(*args, **kwargs)
+        
+        mock.astream_complete = mock_astream_complete
         return mock
     
     def test_rag_engine_init_with_workspace_id(self):
@@ -142,6 +146,18 @@ class TestRAGEngine:
                 # Check that we got chunk messages (type: "chunk") and not just error
                 chunk_messages = [m for m in messages if '"type": "chunk"' in m]
                 assert len(chunk_messages) > 0, "Should have received chunk messages from LLM"
+                # Check that citations event was sent
+                citations_messages = [m for m in messages if '"type": "citations"' in m]
+                assert len(citations_messages) == 1, "Should have received one citations message"
+                # Verify citations content
+                import json
+                citations_msg = citations_messages[0]
+                data = json.loads(citations_msg.replace("data: ", "").strip())
+                assert "citations" in data
+                assert len(data["citations"]) == 1
+                assert data["citations"][0]["id"] == 1
+                assert data["citations"][0]["document_name"] == "AI Overview.pdf"
+                assert data["citations"][0]["page"] == 1
     
     @pytest.mark.asyncio
     async def test_query_stream_handles_errors_gracefully(self, mock_vector_store, mock_llm):

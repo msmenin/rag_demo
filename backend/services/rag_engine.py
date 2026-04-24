@@ -64,14 +64,28 @@ class RAGEngine:
             
             # Build context string from chunks with metadata
             context_parts = []
+            citations_list = []
             for i, chunk in enumerate(chunks, 1):
                 metadata = chunk.get("metadata", {})
                 doc_name = metadata.get("document_name", "Unknown")
                 page = metadata.get("page", "?")
                 text = chunk.get("text", "")
                 context_parts.append(f"[{i}] {doc_name} (page {page}):\n{text}")
+                citations_list.append({
+                    "id": i,
+                    "document_name": doc_name,
+                    "page": page,
+                    "text_preview": text[:200] + "..." if len(text) > 200 else text
+                })
             
             context_str = "\n\n".join(context_parts) if context_parts else "No relevant content found."
+            
+            # Send citations metadata before streaming response
+            citations_data = json.dumps({
+                "type": "citations",
+                "citations": citations_list
+            })
+            yield f"data: {citations_data}\n\n"
             
             # Build prompt for LLM
             prompt = f"""You are a helpful assistant answering questions based on the provided context.

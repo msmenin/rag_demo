@@ -56,6 +56,8 @@ export async function POST(
       const textBlockId = crypto.randomUUID()
       let messageStarted = false
       let accumulatedContent = '' // Track cumulative content to calculate deltas
+      let citationsSent = false
+      let pendingCitations: { id: number; document_name: string; page: number | string; text_preview: string }[] | null = null
       
       try {
         while (true) {
@@ -89,7 +91,17 @@ export async function POST(
                   
                   const dataObj = JSON.parse(jsonStr)
                   
-                  if (dataObj.type === 'chunk') {
+                  if (dataObj.type === 'citations') {
+                    // Store citations to send after message starts
+                    pendingCitations = dataObj.citations
+                    if (messageStarted && !citationsSent && pendingCitations) {
+                      sendEvent(controller, { 
+                        type: 'data-citations',
+                        data: { citations: pendingCitations }
+                      })
+                      citationsSent = true
+                    }
+                  } else if (dataObj.type === 'chunk') {
                     // LLM sends cumulative content, extract only the new portion
                     const newContent = dataObj.content || ''
                     const delta = newContent.slice(accumulatedContent.length)
@@ -100,6 +112,15 @@ export async function POST(
                       sendEvent(controller, { type: 'start', messageId })
                       sendEvent(controller, { type: 'text-start', id: textBlockId })
                       messageStarted = true
+                    }
+                    
+                    // Send citations if pending and not yet sent
+                    if (pendingCitations && !citationsSent) {
+                      sendEvent(controller, { 
+                        type: 'data-citations',
+                        data: { citations: pendingCitations }
+                      })
+                      citationsSent = true
                     }
                     
                     // Send only the incremental delta

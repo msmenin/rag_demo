@@ -4,15 +4,93 @@ import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import { useState, FormEvent } from 'react'
 
+interface Citation {
+  id: number
+  document_name: string
+  page: number | string
+  text_preview: string
+}
+
 interface ChatInterfaceProps {
   workspaceId: string
 }
 
+function CitationMarker({ 
+  id, 
+  citation 
+}: { 
+  id: number
+  citation: Citation | undefined 
+}) {
+  const [showTooltip, setShowTooltip] = useState(false)
+  
+  if (!citation) {
+    return <span className="text-gray-400">[{id}]</span>
+  }
+  
+  return (
+    <span 
+      className="relative inline"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
+      <span className="text-blue-600 cursor-pointer hover:underline font-medium">
+        [{id}]
+      </span>
+      {showTooltip && (
+        <span className="absolute z-50 bottom-full left-0 mb-1 w-64 p-2 text-xs bg-gray-900 text-white rounded shadow-lg">
+          <span className="font-semibold">{citation.document_name}</span>
+          <span className="text-gray-300"> (page {citation.page})</span>
+          <br />
+          <span className="text-gray-400 line-clamp-2">{citation.text_preview}</span>
+        </span>
+      )}
+    </span>
+  )
+}
+
+function renderContentWithCitations(
+  content: string, 
+  citations: Map<number, Citation>
+): React.ReactNode {
+  const parts = content.split(/(\[\d+\])/g)
+  
+  return parts.map((part, index) => {
+    const match = part.match(/^\[(\d+)\]$/)
+    if (match) {
+      const id = parseInt(match[1], 10)
+      return <CitationMarker key={index} id={id} citation={citations.get(id)} />
+    }
+    return part
+  })
+}
+
 export default function ChatInterface({ workspaceId }: ChatInterfaceProps) {
+  const [citationsMap, setCitationsMap] = useState<Map<string, Map<number, Citation>>>(new Map())
+  
   const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({
       api: `/api/workspace/${workspaceId}/query`,
     }),
+    onData: (dataPart) => {
+      if (dataPart.type === 'data-citations') {
+        const data = dataPart.data as { citations: Citation[] }
+        if (data.citations && Array.isArray(data.citations)) {
+          const map = new Map<number, Citation>()
+          for (const cit of data.citations) {
+            map.set(cit.id, cit)
+          }
+          const lastMessageId = messages[messages.length - 1]?.id
+          if (lastMessageId) {
+            setCitationsMap(prev => {
+              const newMap = new Map(prev)
+              newMap.set(lastMessageId, map)
+              return newMap
+            })
+          }
+        }
+      }
+    },
   })
   const [input, setInput] = useState('')
 
@@ -21,17 +99,14 @@ export default function ChatInterface({ workspaceId }: ChatInterfaceProps) {
   const isLoading = status === 'streaming' || status === 'submitted'
 
   const getMessageContent = (message: typeof messages[0]) => {
-    if (typeof message.content === 'string') return message.content
-    if (message.parts) return message.parts.map(p => p.text || '').join('')
-    return ''
+    const textParts = message.parts?.filter((p): p is { type: 'text'; text: string } => 
+      p.type === 'text' && 'text' in p
+    ) ?? []
+    return textParts.map(p => p.text).join('')
   }
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    if (!input.trim() || isLoading) return
-    
-    sendMessage({ text: input })
-    setInput('')
+  const getCitationsForMessage = (messageId: string): Map<number, Citation> => {
+    return citationsMap.get(messageId) || new Map()
   }
 
   return (
@@ -49,22 +124,32 @@ export default function ChatInterface({ workspaceId }: ChatInterfaceProps) {
           </div>
         )}
         
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
+        {messages.map((message) => {
+          const citations = getCitationsForMessage(message.id)
+          const content = getMessageContent(message)
+          
+          return (
             <div
-              className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                message.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-900'
-              }`}
+              key={message.id}
+              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              <p className="text-sm whitespace-pre-wrap">{getMessageContent(message)}</p>
+              <div
+                className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                  message.role === 'user'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-900'
+                }`}
+              >
+                <p className="text-sm whitespace-pre-wrap">
+                  {message.role === 'assistant' 
+                    ? renderContentWithCitations(content, citations)
+                    : content
+                  }
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
         
         {isLoading && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
           <div className="flex justify-start">
@@ -100,7 +185,6 @@ export default function ChatInterface({ workspaceId }: ChatInterfaceProps) {
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask a question about your documents..."
             className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            // disabled={isLoading}
           />
           <button
             type="submit"
@@ -117,4 +201,12 @@ export default function ChatInterface({ workspaceId }: ChatInterfaceProps) {
       </form>
     </div>
   )
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (!input.trim() || isLoading) return
+    
+    sendMessage({ text: input })
+    setInput('')
+  }
 }
