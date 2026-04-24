@@ -16,12 +16,14 @@ class ChunkMetadata(TypedDict):
     Attributes:
         page: Page number from the source document (1-indexed).
         document_id: UUID of the source document.
+        document_name: Filename of the source document.
         workspace_id: UUID of the workspace containing the document.
         chunk_index: Zero-based index of this chunk in the document.
     """
 
     page: int
     document_id: str
+    document_name: str
     workspace_id: str
     chunk_index: int
 
@@ -29,6 +31,7 @@ class ChunkMetadata(TypedDict):
 def chunk_text(
     pages: List[Dict],
     document_id: str,
+    document_name: str,
     workspace_id: str,
     chunk_size: int = 1024,
     chunk_overlap: int = 100,
@@ -41,6 +44,7 @@ def chunk_text(
     Args:
         pages: List of page dicts with 'text' and 'metadata' keys.
         document_id: UUID of the source document.
+        document_name: Filename of the source document.
         workspace_id: UUID of the workspace.
         chunk_size: Target chunk size in tokens (default 1024).
         chunk_overlap: Overlap between chunks in tokens (default 100).
@@ -48,13 +52,13 @@ def chunk_text(
     Returns:
         List of chunk dicts, each containing:
             - 'text': The chunk text content
-            - 'metadata': ChunkMetadata with page, document_id, workspace_id, chunk_index
+            - 'metadata': ChunkMetadata with page, document_id, document_name, workspace_id, chunk_index
 
     Example:
         >>> pages = [{"text": "Page 1 content...", "metadata": {"page": 1}}]
-        >>> chunks = chunk_text(pages, "doc-uuid", "ws-uuid")
+        >>> chunks = chunk_text(pages, "doc-uuid", "document.pdf", "ws-uuid")
         >>> chunks[0]
-        {'text': 'Page 1 content...', 'metadata': {'page': 1, 'document_id': '...', ...}}
+        {'text': 'Page 1 content...', 'metadata': {'page': 1, 'document_id': '...', 'document_name': 'document.pdf', ...}}
     """
     if not pages:
         return []
@@ -87,6 +91,7 @@ def chunk_text(
                 "metadata": ChunkMetadata(
                     page=node.metadata.get("page", 1),
                     document_id=document_id,
+                    document_name=document_name,
                     workspace_id=workspace_id,
                     chunk_index=idx,
                 ),

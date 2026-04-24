@@ -43,6 +43,16 @@ async def process_document(
     doc_uuid = UUID(document_id)
     
     try:
+        # Fetch document to get filename
+        result = await db.execute(
+            select(Document).where(Document.id == doc_uuid)
+        )
+        document = result.scalar_one_or_none()
+        if not document:
+            raise ValueError(f"Document {document_id} not found in database")
+        
+        document_name = document.filename
+        
         # 1. Extract text with page numbers
         pages = extract_pdf_text(file_path)
         
@@ -50,7 +60,7 @@ async def process_document(
         page_count = get_page_count(file_path)
         
         # 3. Chunk text with metadata
-        chunks = chunk_text(pages, document_id, workspace_id)
+        chunks = chunk_text(pages, document_id, document_name, workspace_id)
         
         # 4. Store chunks in ChromaDB (if any)
         if chunks:

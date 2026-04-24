@@ -14,7 +14,7 @@ class TestChunkText:
             {"text": "This is the second page. More content here.", "metadata": {"page": 2}},
         ]
 
-        result = chunk_text(pages, document_id="doc-123", workspace_id="ws-456")
+        result = chunk_text(pages, document_id="doc-123", document_name="test.pdf", workspace_id="ws-456")
 
         assert isinstance(result, list)
         assert len(result) > 0
@@ -27,20 +27,22 @@ class TestChunkText:
             assert isinstance(chunk["metadata"], dict)
 
     def test_metadata_includes_all_required_fields(self):
-        """Test that metadata includes page, document_id, workspace_id, chunk_index."""
+        """Test that metadata includes page, document_id, document_name, workspace_id, chunk_index."""
         pages = [
             {"text": "Test content for metadata verification.", "metadata": {"page": 1}},
         ]
 
-        result = chunk_text(pages, document_id="doc-123", workspace_id="ws-456")
+        result = chunk_text(pages, document_id="doc-123", document_name="test.pdf", workspace_id="ws-456")
 
         for idx, chunk in enumerate(result):
             metadata = chunk["metadata"]
             assert "page" in metadata
             assert "document_id" in metadata
+            assert "document_name" in metadata
             assert "workspace_id" in metadata
             assert "chunk_index" in metadata
             assert metadata["document_id"] == "doc-123"
+            assert metadata["document_name"] == "test.pdf"
             assert metadata["workspace_id"] == "ws-456"
             assert metadata["chunk_index"] == idx
 
@@ -54,7 +56,7 @@ class TestChunkText:
             },
         ]
 
-        result = chunk_text(pages, document_id="doc-1", workspace_id="ws-1")
+        result = chunk_text(pages, document_id="doc-1", document_name="test.pdf", workspace_id="ws-1")
 
         # Each chunk should end with a period or be the last chunk
         for chunk in result[:-1]:
@@ -70,7 +72,7 @@ class TestChunkText:
             {"text": long_text, "metadata": {"page": 1}},
         ]
 
-        result = chunk_text(pages, document_id="doc-1", workspace_id="ws-1")
+        result = chunk_text(pages, document_id="doc-1", document_name="test.pdf", workspace_id="ws-1")
 
         # Should produce multiple chunks
         assert len(result) > 1
@@ -83,7 +85,7 @@ class TestChunkText:
 
     def test_empty_input_returns_empty_list(self):
         """Test that empty input returns empty list."""
-        result = chunk_text([], document_id="doc-1", workspace_id="ws-1")
+        result = chunk_text([], document_id="doc-1", document_name="test.pdf", workspace_id="ws-1")
         assert result == []
 
     def test_single_page_single_chunk(self):
@@ -92,7 +94,7 @@ class TestChunkText:
             {"text": "This is a short page. Only a few sentences.", "metadata": {"page": 1}},
         ]
 
-        result = chunk_text(pages, document_id="doc-1", workspace_id="ws-1")
+        result = chunk_text(pages, document_id="doc-1", document_name="test.pdf", workspace_id="ws-1")
 
         assert len(result) == 1
         assert result[0]["metadata"]["page"] == 1
@@ -105,7 +107,7 @@ class TestChunkText:
             {"text": "Page three content.", "metadata": {"page": 3}},
         ]
 
-        result = chunk_text(pages, document_id="doc-1", workspace_id="ws-1")
+        result = chunk_text(pages, document_id="doc-1", document_name="test.pdf", workspace_id="ws-1")
 
         # Check that page numbers are in the range 1-3
         page_numbers = {chunk["metadata"]["page"] for chunk in result}
@@ -120,11 +122,13 @@ class TestChunkMetadata:
         metadata = ChunkMetadata(
             page=1,
             document_id="doc-123",
+            document_name="test.pdf",
             workspace_id="ws-456",
             chunk_index=0,
         )
 
         assert metadata["page"] == 1
         assert metadata["document_id"] == "doc-123"
+        assert metadata["document_name"] == "test.pdf"
         assert metadata["workspace_id"] == "ws-456"
         assert metadata["chunk_index"] == 0
