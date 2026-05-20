@@ -31,9 +31,6 @@ node_modules/
 .next/
 frontend/.next/
 
-# Local planning / agent state (GSD, etc.)
-.planning/
-
 # IDE
 .vscode/
 .idea/
@@ -62,3 +59,9 @@ uploads/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local planning / agent state (GSD, etc.)
+.opencode/
+.claude/
+.cursor/
+.planning/
