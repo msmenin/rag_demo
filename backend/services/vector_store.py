@@ -5,6 +5,7 @@ from llama_index.core import VectorStoreIndex, StorageContext, Document
 from typing import List, Dict, Optional
 from pathlib import Path
 
+from backend.config import settings
 from backend.services.embedding_factory import create_embedding_model
 
 
@@ -14,13 +15,15 @@ class VectorStoreService:
     Each workspace gets its own ChromaDB collection for isolation.
     """
     
-    def __init__(self, persist_directory: str = "./chroma_db"):
+    def __init__(self, persist_directory: str | None = None):
         """Initialize the vector store service.
         
         Args:
-            persist_directory: Path to directory for ChromaDB persistence
+            persist_directory: Path to directory for ChromaDB persistence.
+                Defaults to settings.CHROMA_DB_PATH.
         """
-        self.client = chromadb.PersistentClient(path=persist_directory)
+        path = persist_directory or settings.CHROMA_DB_PATH
+        self.client = chromadb.PersistentClient(path=path)
         self.embed_model = create_embedding_model()
     
     def get_workspace_collection(self, workspace_id: str):
@@ -145,5 +148,4 @@ def get_vector_store_service() -> VectorStoreService:
     Returns:
         VectorStoreService configured with application settings
     """
-    from backend.config import settings
-    return VectorStoreService(persist_directory=settings.CHROMA_DB_PATH)
+    return VectorStoreService()
